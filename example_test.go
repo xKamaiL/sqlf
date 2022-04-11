@@ -54,7 +54,7 @@ func Example() {
 		GroupBy("region, product").
 		OrderBy("product_sales DESC").
 		// Execute the query
-		QueryAndClose(ctx, db, func(row *sql.Rows) {
+		Iter(ctx, func() {
 			// Callback function is called for every returned row.
 			// Row values are scanned automatically to bound variables.
 			fmt.Printf("%s\t%s\t%d\t$%.2f\n", region, product, productUnits, productSales)
@@ -272,7 +272,7 @@ func ExampleStmt_QueryRowAndClose() {
 		Select("price").To(&o.price).
 		Select("is_deleted").To(&o.isDeleted).
 		Where("id = ?", 42).
-		QueryRowAndClose(ctx, db)
+		QueryRow(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -291,7 +291,7 @@ func ExampleStmt_Bind() {
 	err := sqlf.From("offers").
 		Bind(&o).
 		Where("id = ?", 42).
-		QueryRowAndClose(ctx, db)
+		QueryRow(ctx)
 	if err != nil {
 		panic(err)
 	}

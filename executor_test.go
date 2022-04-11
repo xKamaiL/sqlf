@@ -113,20 +113,8 @@ func TestQueryRow(t *testing.T) {
 		q := env.sqlf.From("users").
 			Select("name").To(&name).
 			Where("id = ?", 1)
-		err := q.QueryRow(ctx, env.db)
+		err := q.QueryRow(ctx)
 		q.Close()
-		require.NoError(t, err, "Failed to execute a query: %v", err)
-		require.Equal(t, "User 1", name)
-	})
-}
-
-func TestQueryRowAndClose(t *testing.T) {
-	forEveryDB(t, func(ctx context.Context, env *dbEnv) {
-		var name string
-		err := env.sqlf.From("users").
-			Select("name").To(&name).
-			Where("id = ?", 1).
-			QueryRowAndClose(ctx, env.db)
 		require.NoError(t, err, "Failed to execute a query: %v", err)
 		require.Equal(t, "User 1", name)
 	})
@@ -141,7 +129,7 @@ func TestBind(t *testing.T) {
 		err := env.sqlf.From("users").
 			Bind(&u).
 			Where("id = ?", 2).
-			QueryRowAndClose(ctx, env.db)
+			QueryRow(ctx)
 		require.NoError(t, err, "Failed to execute a query: %v", err)
 		require.Equal(t, "User 2", u.Name)
 		require.EqualValues(t, 2, u.ID)
@@ -160,7 +148,7 @@ func TestBindNested(t *testing.T) {
 		err := env.sqlf.From("users").
 			Bind(&u).
 			Where("id = ?", 2).
-			QueryRowAndClose(ctx, env.db)
+			QueryRow(ctx)
 		require.NoError(t, err, "Failed to execute a query: %v", err)
 		require.Equal(t, "User 2", u.Name)
 		require.EqualValues(t, 2, u.ID)
@@ -178,18 +166,18 @@ func TestExec(t *testing.T) {
 			Select("min(id)").To(&userId)
 		defer q.Close()
 
-		q.QueryRow(ctx, env.db)
+		q.QueryRow(ctx)
 
 		require.Equal(t, 3, count)
 
 		_, err := env.sqlf.DeleteFrom("users").
 			Where("id = ?", userId).
-			ExecAndClose(ctx, env.db)
+			ExecAndClose(ctx)
 		require.NoError(t, err, "Failed to delete a row. %s error: %v", env.driver, err)
 
 		// Re-check the number of remaining rows
 		count = 0
-		q.QueryRow(ctx, env.db)
+		q.QueryRow(ctx)
 
 		require.Equal(t, 2, count)
 	})
@@ -220,7 +208,7 @@ func TestPagination(t *testing.T) {
 		// Clone a statement and retrieve the record count
 		err = qs.Clone().
 			Select("count(id)").To(&result.Count).
-			QueryRowAndClose(ctx, env.db)
+			QueryRow(ctx)
 		if err != nil {
 			return
 		}
@@ -229,7 +217,7 @@ func TestPagination(t *testing.T) {
 		err = qs.Bind(&o).
 			OrderBy("id desc").
 			Paginate(1, 2).
-			QueryAndClose(ctx, env.db, func(rows *sql.Rows) {
+			Iter(ctx, func() {
 				result.Data = append(result.Data, o)
 			})
 		if err != nil {
@@ -258,7 +246,7 @@ func TestQuery(t *testing.T) {
 			GroupBy("ut.name, uf.name").
 			OrderBy("got DESC")
 		defer q.Close()
-		err := q.Query(ctx, env.db, func(rows *sql.Rows) {
+		err := q.Iter(ctx, func() {
 			nRows++
 		})
 		if err != nil {
@@ -269,7 +257,7 @@ func TestQuery(t *testing.T) {
 			q.Limit(1)
 
 			nRows = 0
-			err := q.Query(ctx, env.db, func(rows *sql.Rows) {
+			err := q.Iter(ctx, func() {
 				nRows++
 			})
 			if err != nil {
@@ -281,29 +269,6 @@ func TestQuery(t *testing.T) {
 				require.Equal(t, 500.0, amount)
 			}
 		}
-	})
-}
-
-func TestQueryAndClose(t *testing.T) {
-	forEveryDB(t, func(ctx context.Context, env *dbEnv) {
-		var (
-			nRows  int     = 0
-			total  float64 = 0.0
-			amount float64
-		)
-		err := env.sqlf.
-			From("incomes").
-			Select("sum(amount) as got").To(&amount).
-			GroupBy("user_id, from_user_id").
-			OrderBy("got DESC").
-			QueryAndClose(ctx, env.db, func(rows *sql.Rows) {
-				nRows++
-				total += amount
-			})
-
-		require.NoError(t, err, "Failed to execute a query. %s error: %v", env.driver, err)
-		require.Equal(t, 4, nRows)
-		require.Equal(t, 1550.0, total)
 	})
 }
 
@@ -333,4 +298,14 @@ var sqlFillDb = []string{
 var sqlSchemaDrop = []string{
 	`DROP TABLE incomes`,
 	`DROP TABLE users`,
+}
+
+func Test_StructElemToPtr(t *testing.T) {
+	var p struct {
+		First  string `json:"first" db:"first"`
+		Second int    `json:"second" db:"second"`
+		Third  int    `json:"third" db:"third"`
+	}
+	got := sqlf.StructElemToPtr(&p)
+	t.Log(got)
 }

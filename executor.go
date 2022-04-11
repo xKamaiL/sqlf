@@ -3,107 +3,86 @@ package sqlf
 import (
 	"context"
 	"database/sql"
+	"reflect"
+
+	"github.com/acoshift/pgsql"
+	"github.com/acoshift/pgsql/pgctx"
 )
 
 // Executor performs SQL queries.
 // It's an interface accepted by Query, QueryRow and Exec methods.
 // Both sql.DB, sql.Conn and sql.Tx can be passed as executor.
 type Executor interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	pgctx.DB
 }
-
-// Query executes the statement.
-// For every row of a returned dataset it calls a handler function.
-// If scan targets were set via To method calls, Query method
-// executes rows.Scan right before calling a handler function.
-func (q *Stmt) Query(ctx context.Context, db Executor, handler func(rows *sql.Rows)) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	// Fetch rows
-	rows, err := db.QueryContext(ctx, q.String(), q.args...)
-	if err != nil {
-		return err
-	}
-
-	// Iterate through rows of returned dataset
-	for rows.Next() {
-		if len(q.dest) > 0 {
-			err = rows.Scan(q.dest...)
-			if err != nil {
-				break
-			}
-		}
-		// Call a callback function
-		handler(rows)
-	}
-	// Check for errors during rows "Close".
-	// This may be more important if multiple statements are executed
-	// in a single batch and rows were written as well as read.
-	if closeErr := rows.Close(); closeErr != nil {
-		return closeErr
-	}
-
-	// Check for row scan error.
-	if err != nil {
-		return err
-	}
-
-	// Check for errors during row iteration.
-	return rows.Err()
-}
-
-// QueryAndClose executes the statement and releases all the resources that
-// can be reused to a pool. Do not call any Stmt methods after this call.
-// For every row of a returned dataset QueryAndClose executes a handler function.
-// If scan targets were set via To method calls, QueryAndClose method
-// executes rows.Scan right before calling a handler function.
-func (q *Stmt) QueryAndClose(ctx context.Context, db Executor, handler func(rows *sql.Rows)) error {
-	err := q.Query(ctx, db, handler)
-	q.Close()
-	return err
-}
+type IteratorFunc func()
 
 // QueryRow executes the statement via Executor methods
 // and scans values to variables bound via To method calls.
-func (q *Stmt) QueryRow(ctx context.Context, db Executor) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	row := db.QueryRowContext(ctx, q.String(), q.args...)
-
-	return row.Scan(q.dest...)
-}
-
-// QueryRowAndClose executes the statement via Executor methods
-// and scans values to variables bound via To method calls.
-// All the objects allocated by query builder are moved to a pool
-// to be reused.
-//
-// Do not call any Stmt methods after this call.
-func (q *Stmt) QueryRowAndClose(ctx context.Context, db Executor) error {
-	err := q.QueryRow(ctx, db)
-	q.Close()
-	return err
+// and call to pgctx.QueryRow
+func (q *Stmt) QueryRow(ctx context.Context) error {
+	return pgctx.QueryRow(ctx, q.String(), q.args...).Scan(q.dest...)
 }
 
 // Exec executes the statement.
-func (q *Stmt) Exec(ctx context.Context, db Executor) (sql.Result, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func (q *Stmt) Exec(ctx context.Context) (sql.Result, error) {
+	return pgctx.Exec(ctx, q.String(), q.args...)
+}
+
+// StructElemToPtr get elem in struct to dest ptr
+func StructElemToPtr(data any) []any {
+
+	dest := make([]interface{}, 0)
+
+	typ := reflect.TypeOf(data).Elem()
+	val := reflect.ValueOf(data).Elem()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		t := typ.Field(i)
+		if field.Kind() == reflect.Struct && t.Anonymous {
+			StructElemToPtr(field.Addr().Interface())
+		} else {
+			dbFieldName := t.Tag.Get("db")
+			if dbFieldName != "" {
+				dest = append(dest, field.Addr().Interface())
+			}
+		}
 	}
-	return db.ExecContext(ctx, q.String(), q.args...)
+	return dest
+}
+func Iter[T any](ctx context.Context, q *Stmt, value any) error {
+	return pgctx.Iter(ctx, func(scan pgsql.Scanner) error {
+		var t T
+		//q.To
+		if err := scan(t); err != nil {
+			return err
+		}
+		return nil
+	}, q.String(), q.args...)
+}
+func (q *Stmt) Iter(ctx context.Context, f IteratorFunc) error {
+	var err error
+	err = pgctx.Iter(ctx, func(scan pgsql.Scanner) error {
+
+		//var item T
+
+		if err := scan(q.dest...); err != nil {
+			return err
+		}
+		// TODO:
+
+		return nil
+	}, q.String(), q.args...)
+	return err
 }
 
 // ExecAndClose executes the statement and releases all the objects
 // and buffers allocated by statement builder back to a pool.
 //
 // Do not call any Stmt methods after this call.
-func (q *Stmt) ExecAndClose(ctx context.Context, db Executor) (sql.Result, error) {
-	res, err := q.Exec(ctx, db)
+func (q *Stmt) ExecAndClose(ctx context.Context) (sql.Result, error) {
+	res, err := q.Exec(ctx)
 	q.Close()
 	return res, err
 }
