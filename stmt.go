@@ -424,8 +424,20 @@ func (q *Stmt) Offset(offset interface{}) *Stmt {
 	return q
 }
 
-// Paginate provides an easy way to set both offset and limit
-func (q *Stmt) Paginate(page, pageSize int) *Stmt {
+// Paginator for Stmt.Paginate
+type Paginator interface {
+	// Limit limit item
+	Limit() uint
+	// Page of current pagination
+	Page() uint
+	// OrderBy desc or asc
+	OrderBy() string
+}
+
+// Paginate provides an easy way to set both offset, limit order by
+func (q *Stmt) Paginate(p Paginator) *Stmt {
+	page := p.Page()
+	pageSize := p.Limit()
 	if page < 1 {
 		page = 1
 	}
