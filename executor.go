@@ -14,6 +14,8 @@ import (
 type Executor interface {
 	pgctx.DB
 }
+
+// IteratorFunc call when Stmt.Iter
 type IteratorFunc func()
 
 // QueryRow executes the statement via Executor methods
@@ -28,6 +30,15 @@ func (q *Stmt) Exec(ctx context.Context) (sql.Result, error) {
 	return pgctx.Exec(ctx, q.String(), q.args...)
 }
 
+// Iter call pgctx.Iter
+// with callback function IteratorFunc
+// Ex:
+// var s YourStruct
+// err := q.Struct(&s).Iter(ctx, func() {
+//  items = append(items, s)
+// })
+//
+//
 func (q *Stmt) Iter(ctx context.Context, f IteratorFunc) error {
 	var err error
 	err = pgctx.Iter(ctx, func(scan pgsql.Scanner) error {
