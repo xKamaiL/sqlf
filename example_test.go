@@ -92,17 +92,41 @@ func ExampleStmt_Offset() {
 	// Output: SELECT id FROM table LIMIT $1 OFFSET $2
 }
 
+type paginator struct {
+	page  uint
+	limit uint
+	order string
+}
+
+func (p paginator) Limit() uint {
+	return p.limit
+}
+
+func (p paginator) Page() uint {
+	return p.page
+}
+
+func (p paginator) OrderBy() string {
+	if p.order == "asc" || p.order == "desc" {
+		return p.order
+	}
+	return "asc"
+}
+
+var _ sqlf.Paginator = &paginator{}
+
 func ExampleStmt_Paginate() {
-	q := sqlf.Select("id").From("table").Paginate(5, 10)
+
+	q := sqlf.Select("id").From("table").Paginate(paginator{5, 10, "asc"})
 	fmt.Println(q.String(), q.Args())
 	q.Close()
 
-	q = sqlf.Select("id").From("table").Paginate(1, 10)
+	q = sqlf.Select("id").From("table").Paginate(paginator{1, 10, "asc"})
 	fmt.Println(q.String(), q.Args())
 	q.Close()
 
 	// Zero and negative values are replaced with 1
-	q = sqlf.Select("id").From("table").Paginate(-1, -1)
+	q = sqlf.Select("id").From("table").Paginate(paginator{0, 0, "asc"})
 	fmt.Println(q.String(), q.Args())
 	q.Close()
 
