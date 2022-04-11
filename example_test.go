@@ -266,7 +266,7 @@ func ExampleStmt_Clause() {
 	// SELECT sum(salary) OVER w FROM empsalary WINDOW w AS (PARTITION BY depname ORDER BY salary DESC)
 }
 
-func ExampleStmt_QueryRowAndClose() {
+func ExampleStmt_QueryRow() {
 	type Offer struct {
 		id        int64
 		productId int64
@@ -288,7 +288,7 @@ func ExampleStmt_QueryRowAndClose() {
 	}
 }
 
-func ExampleStmt_Bind() {
+func ExampleStmt_Struct() {
 	type Offer struct {
 		Id        int64   `db:"id"`
 		ProductId int64   `db:"product_id"`
