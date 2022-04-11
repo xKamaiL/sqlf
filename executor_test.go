@@ -119,7 +119,7 @@ func TestQueryRow(t *testing.T) {
 	})
 }
 
-func TestBind(t *testing.T) {
+func TestStruct(t *testing.T) {
 	forEveryDB(t, func(ctx context.Context, env *dbEnv) {
 		var u struct {
 			ID   int64  `db:"id"`
