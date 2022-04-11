@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/leporo/sqlf"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/xkamail/sqlf"
 )
 
 type dbEnv struct {
@@ -32,7 +33,7 @@ var dbList = []dbConfig{
 		driver:  "sqlite3",
 		envVar:  "SQLF_SQLITE_DSN",
 		defDSN:  ":memory:",
-		dialect: sqlf.NoDialect,
+		dialect: sqlf.PostgreSQL,
 	},
 }
 

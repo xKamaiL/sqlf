@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/leporo/sqlf"
+	"github.com/xkamail/sqlf"
 )
 
 type dummyDB int
@@ -73,13 +73,13 @@ func ExampleStmt_OrderBy() {
 func ExampleStmt_Limit() {
 	q := sqlf.Select("id").From("table").Limit(10)
 	fmt.Println(q.String())
-	// Output: SELECT id FROM table LIMIT ?
+	// Output: SELECT id FROM table LIMIT $1
 }
 
 func ExampleStmt_Offset() {
 	q := sqlf.Select("id").From("table").Limit(10).Offset(10)
 	fmt.Println(q.String())
-	// Output: SELECT id FROM table LIMIT ? OFFSET ?
+	// Output: SELECT id FROM table LIMIT $1 OFFSET $2
 }
 
 func ExampleStmt_Paginate() {
@@ -97,9 +97,9 @@ func ExampleStmt_Paginate() {
 	q.Close()
 
 	// Output:
-	// SELECT id FROM table LIMIT ? OFFSET ? [10 40]
-	// SELECT id FROM table LIMIT ? [10]
-	// SELECT id FROM table LIMIT ? [1]
+	// SELECT id FROM table LIMIT $1 OFFSET $2 [10 40]
+	// SELECT id FROM table LIMIT $1 [10]
+	// SELECT id FROM table LIMIT $1 [1]
 }
 
 func ExampleStmt_Update() {
@@ -107,7 +107,7 @@ func ExampleStmt_Update() {
 	fmt.Println(q.String(), q.Args())
 	q.Close()
 	// Output:
-	// UPDATE table SET field1=? WHERE id = ? [newvalue 42]
+	// UPDATE table SET field1=$1 WHERE id = $2 [newvalue 42]
 }
 
 func ExampleStmt_SetExpr() {
@@ -116,7 +116,7 @@ func ExampleStmt_SetExpr() {
 	fmt.Println(q.Args())
 	q.Close()
 	// Output:
-	// UPDATE table SET field1=field2 + 1 WHERE id = ?
+	// UPDATE table SET field1=field2 + 1 WHERE id = $1
 	// [42]
 }
 
@@ -128,7 +128,7 @@ func ExampleStmt_InsertInto() {
 	fmt.Println(q.Args())
 	q.Close()
 	// Output:
-	// INSERT INTO table ( field1, field2 ) VALUES ( ?, field2 + 1 )
+	// INSERT INTO table ( field1, field2 ) VALUES ( $1, field2 + 1 )
 	// [newvalue]
 }
 
@@ -138,7 +138,7 @@ func ExampleStmt_DeleteFrom() {
 	fmt.Println(q.Args())
 	q.Close()
 	// Output:
-	// DELETE FROM table WHERE id = ?
+	// DELETE FROM table WHERE id = $1
 	// [42]
 }
 
@@ -151,7 +151,7 @@ func ExampleStmt_GroupBy() {
 	fmt.Println(q.Args())
 	q.Close()
 	// Output:
-	// SELECT source, sum(amount) as s FROM incomes WHERE amount > ? GROUP BY source
+	// SELECT source, sum(amount) as s FROM incomes WHERE amount > $1 GROUP BY source
 	// [42]
 }
 
@@ -165,7 +165,7 @@ func ExampleStmt_Having() {
 	fmt.Println(q.Args())
 	q.Close()
 	// Output:
-	// SELECT source, sum(amount) as s FROM incomes WHERE amount > ? GROUP BY source HAVING s > ?
+	// SELECT source, sum(amount) as s FROM incomes WHERE amount > $1 GROUP BY source HAVING s > $2
 	// [42 100]
 }
 
@@ -177,7 +177,7 @@ func ExampleStmt_Returning() {
 	fmt.Println(q.String(), q.Args())
 	q.Close()
 	// Output:
-	// INSERT INTO table ( field1 ) VALUES ( ? ) RETURNING id [newvalue]
+	// INSERT INTO table ( field1 ) VALUES ( $1 ) RETURNING id [newvalue]
 }
 
 func ExamplePostgreSQL() {
@@ -306,7 +306,7 @@ func ExampleStmt_In() {
 	q.Close()
 
 	// Output:
-	// SELECT id, status FROM tasks WHERE status IN (?,?,?)
+	// SELECT id, status FROM tasks WHERE status IN ($1,$2,$3)
 	// [new pending wip]
 }
 
@@ -326,6 +326,6 @@ func ExampleStmt_Union() {
 	q.Close()
 
 	// Output:
-	// SELECT id, status FROM tasks WHERE status = ? UNION ALL SELECT id, status FROM tasks WHERE status = ? UNION ALL SELECT id, status FROM tasks WHERE status = ? ORDER BY id
+	// SELECT id, status FROM tasks WHERE status = $1 UNION ALL SELECT id, status FROM tasks WHERE status = $2 UNION ALL SELECT id, status FROM tasks WHERE status = $3 ORDER BY id
 	// [new pending wip]
 }

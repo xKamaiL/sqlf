@@ -477,14 +477,13 @@ func (q *Stmt) SubQuery(prefix, suffix string, query *Stmt) *Stmt {
 	index := q.addChunk(q.pos, "", prefix, query.args, delimiter)
 	chunk := &q.chunks[index]
 	// Make sure subquery is not dialect-specific.
-	if query.dialect != NoDialect {
-		query.dialect = NoDialect
+	if query.dialect != noDialect {
+		query.dialect = noDialect
 		query.Invalidate()
 	}
 	q.buf.WriteString(query.String())
 	q.buf.WriteString(suffix)
 	chunk.bufHigh = q.buf.Len()
-	// Close the subquery
 	query.Close()
 
 	return q
@@ -513,8 +512,8 @@ func (q *Stmt) Union(all bool, query *Stmt) *Stmt {
 	}
 	chunk := &q.chunks[index]
 	// Make sure subquery is not dialect-specific.
-	if query.dialect != NoDialect {
-		query.dialect = NoDialect
+	if query.dialect != noDialect {
+		query.dialect = noDialect
 		query.Invalidate()
 	}
 	q.buf.WriteString(query.String())
@@ -551,7 +550,7 @@ func (q *Stmt) String() string {
 			q.sql = sql
 		} else {
 			// Build a query
-			var argNo int = 1
+			argNo := 1
 			buf := strings.Builder{}
 
 			pos := 0
@@ -561,6 +560,7 @@ func (q *Stmt) String() string {
 					buf.Write(space)
 				}
 				s := q.buf.B[chunk.bufLow:chunk.bufHigh]
+				// for subQuery and Union
 				if chunk.argLen > 0 && q.dialect == PostgreSQL {
 					argNo, _ = writePg(argNo, s, &buf)
 				} else {

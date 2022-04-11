@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/leporo/sqlf"
 	"github.com/stretchr/testify/require"
+
+	"github.com/xkamail/sqlf"
 )
 
 func TestNewBuilder(t *testing.T) {
-	sqlf.SetDialect(sqlf.NoDialect)
 	q := sqlf.New("SELECT *").From("table")
 	defer q.Close()
 	sql := q.String()
@@ -19,19 +19,11 @@ func TestNewBuilder(t *testing.T) {
 	require.Empty(t, args)
 }
 
-func TestBasicSelect(t *testing.T) {
-	q := sqlf.From("table").Select("id").Where("id > ?", 42).Where("id < ?", 1000)
-	defer q.Close()
-	sql, args := q.String(), q.Args()
-	require.Equal(t, "SELECT id FROM table WHERE id > ? AND id < ?", sql)
-	require.Equal(t, []interface{}{42, 1000}, args)
-}
-
 func TestMixedOrder(t *testing.T) {
 	q := sqlf.Select("id").Where("id > ?", 42).From("table").Where("id < ?", 1000)
 	defer q.Close()
 	sql, args := q.String(), q.Args()
-	require.Equal(t, "SELECT id FROM table WHERE id > ? AND id < ?", sql)
+	require.Equal(t, "SELECT id FROM table WHERE id > $1 AND id < $2", sql)
 	require.Equal(t, []interface{}{42, 1000}, args)
 }
 
@@ -39,7 +31,7 @@ func TestClause(t *testing.T) {
 	q := sqlf.Select("id").From("table").Where("id > ?", 42).Clause("FETCH NEXT").Clause("FOR UPDATE")
 	defer q.Close()
 	sql, args := q.String(), q.Args()
-	require.Equal(t, "SELECT id FROM table WHERE id > ? FETCH NEXT FOR UPDATE", sql)
+	require.Equal(t, "SELECT id FROM table WHERE id > $1 FETCH NEXT FOR UPDATE", sql)
 	require.Equal(t, []interface{}{42}, args)
 }
 
@@ -48,7 +40,7 @@ func TestExpr(t *testing.T) {
 		Select("id").
 		Expr("(select 1 from related where table_id = table.id limit 1) AS has_related").
 		Where("id > ?", 42)
-	require.Equal(t, "SELECT id, (select 1 from related where table_id = table.id limit 1) AS has_related FROM table WHERE id > ?", q.String())
+	require.Equal(t, "SELECT id, (select 1 from related where table_id = table.id limit 1) AS has_related FROM table WHERE id > $1", q.String())
 	require.Equal(t, []interface{}{42}, q.Args())
 	q.Close()
 }
@@ -63,7 +55,7 @@ func TestManyFields(t *testing.T) {
 		q.Select(field)
 	}
 	sql, args := q.String(), q.Args()
-	require.Equal(t, "SELECT id, (id + ?) as id_1, (id + ?) as id_2, (id + ?) as id_3, uno, dos, tres FROM table WHERE id = ?", sql)
+	require.Equal(t, "SELECT id, (id + $1) as id_1, (id + $2) as id_2, (id + $3) as id_3, uno, dos, tres FROM table WHERE id = $4", sql)
 	require.Equal(t, []interface{}{10, 20, 30, 42}, args)
 }
 
@@ -129,7 +121,7 @@ func TestManyClauses(t *testing.T) {
 	defer q.Close()
 	sql, args := q.String(), q.Args()
 
-	require.Equal(t, "SELECT field FROM table WHERE id > ? UNO DOS TRES QUATRO LIMIT ? OFFSET ? NO LOCK", sql)
+	require.Equal(t, "SELECT field FROM table WHERE id > $1 UNO DOS TRES QUATRO LIMIT $2 OFFSET $3 NO LOCK", sql)
 	require.Equal(t, []interface{}{2, 5, 10}, args)
 }
 
@@ -146,7 +138,7 @@ func TestWith(t *testing.T) {
 		Bind(&row)
 	defer q.Close()
 
-	require.Equal(t, "WITH t AS (SELECT id, quantity FROM orders WHERE ts < ?) SELECT id, quantity FROM t", q.String())
+	require.Equal(t, "WITH t AS (SELECT id, quantity FROM orders WHERE ts < $1) SELECT id, quantity FROM t", q.String())
 }
 
 func TestWithRecursive(t *testing.T) {
@@ -161,7 +153,7 @@ func TestWithRecursive(t *testing.T) {
 		GroupBy("region, product")
 	defer q.Close()
 
-	require.Equal(t, "WITH RECURSIVE regional_sales AS (SELECT region, SUM(amount) AS total_sales FROM orders GROUP BY region), top_regions AS (SELECT region FROM regional_sales ORDER BY total_sales DESC LIMIT ?) SELECT region, product, SUM(quantity) AS product_units, SUM(amount) AS product_sales FROM orders WHERE region IN (SELECT region FROM top_regions) GROUP BY region, product", q.String())
+	require.Equal(t, "WITH RECURSIVE regional_sales AS (SELECT region, SUM(amount) AS total_sales FROM orders GROUP BY region), top_regions AS (SELECT region FROM regional_sales ORDER BY total_sales DESC LIMIT $1) SELECT region, product, SUM(quantity) AS product_units, SUM(amount) AS product_sales FROM orders WHERE region IN (SELECT region FROM top_regions) GROUP BY region, product", q.String())
 }
 
 func TestSubQueryDialect(t *testing.T) {
@@ -172,7 +164,8 @@ func TestSubQueryDialect(t *testing.T) {
 			sqlf.PostgreSQL.From("orders").
 				Select("id").
 				Where("user_id = u.id").
-				Where("amount > ?", 100))
+				Where("amount > ?", 100),
+		)
 	defer q.Close()
 
 	// Parameter placeholder numbering should match the arguments
@@ -188,7 +181,7 @@ func TestClone(t *testing.T) {
 	q := sqlf.From("table").Select("field").To(&value).Where("id = ?", 42)
 	defer q.Close()
 
-	require.Equal(t, "SELECT field FROM table WHERE id = ?", q.String())
+	require.Equal(t, "SELECT field FROM table WHERE id = $1", q.String())
 
 	q2 := q.Clone()
 	defer q2.Close()
@@ -258,7 +251,7 @@ func TestUnion(t *testing.T) {
 			Select("id, status").
 			Where("status = ?", "wip"))
 	defer q.Close()
-	require.Equal(t, "SELECT id, status FROM tasks WHERE status = ? UNION SELECT id, status FROM tasks WHERE status = ?", q.String())
+	require.Equal(t, "SELECT id, status FROM tasks WHERE status = $1 UNION SELECT id, status FROM tasks WHERE status = $2", q.String())
 }
 
 func TestLimit(t *testing.T) {
@@ -269,7 +262,7 @@ func TestLimit(t *testing.T) {
 		Limit(11).
 		Limit(20)
 	defer q.Close()
-	require.Equal(t, "SELECT id FROM items WHERE id > ? LIMIT ?", q.String())
+	require.Equal(t, "SELECT id FROM items WHERE id > $1 LIMIT $2", q.String())
 	require.Equal(t, []interface{}{42, 20}, q.Args())
 }
 
@@ -289,7 +282,7 @@ func TestBindStruct(t *testing.T) {
 		Bind(&u).
 		Where("id = ?", 2)
 	defer q.Close()
-	require.Equal(t, "SELECT id, date, child_time, name FROM users WHERE id = ?", q.String())
+	require.Equal(t, "SELECT id, date, child_time, name FROM users WHERE id = $1", q.String())
 	require.Equal(t, []interface{}{2}, q.Args())
 	require.EqualValues(t, []interface{}{&u.ID, &u.Date, &u.ChildTime, &u.Name}, q.Dest())
 }

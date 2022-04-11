@@ -34,13 +34,12 @@ type Dialect struct {
 }
 
 var (
-	// NoDialect is a default statement builder mode.
-	NoDialect *Dialect = &Dialect{}
 	// PostgreSQL mode is to be used to automatically replace ? placeholders with $1, $2...
 	PostgreSQL *Dialect = &Dialect{}
+	noDialect  *Dialect = &Dialect{}
 )
 
-var defaultDialect = NoDialect
+var defaultDialect = PostgreSQL
 
 /*
 SetDialect selects a Dialect to be used by default.
