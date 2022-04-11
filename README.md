@@ -16,7 +16,7 @@ What `sqlf` does?
 - You may dynamically apply filters by adding where conditions, change result ordering, etc.
 - You may safely use `?` placeholders in your SQL fragments - `sqlf` converts them to PostgreSQL-like `$1, $2, ...`
   placeholders if needed and does the numbering for you.
-- You may `.Bind` your structure to database columns like you do with other similar libraries.
+- You may `.Struct` your structure to database columns like you do with other similar libraries.
 - `sqlf.Stmt` has methods to execute a query using any `database/sql` compatible driver.
 
 What `sqlf` doesn't?
@@ -78,7 +78,7 @@ panic(err)
 }
 ```
 
-Bind a structure:
+Struct a structure:
 
 ```go
 type Offer struct {
@@ -91,7 +91,7 @@ IsDeleted bool    `db:"is_deleted"`
 var o Offer
 
 err := sqlf.From("offers").
-Bind(&o).
+Struct(&o).
 Where("id = ?", 42).
 QueryRowAndClose(ctx, db)
 if err != nil {
@@ -130,7 +130,7 @@ it for a case:
 ```go
 func (o *Offer) Select() *sqlf.Stmt {
 return sqlf.From("products").
-.Bind(o)
+.Struct(o)
 // Ignore records, marked as deleted
 Where("is_deleted = false")
 }
@@ -173,7 +173,7 @@ panic(err)
 
 #### Value Binding
 
-Bind columns to values using `To` method:
+Struct columns to values using `To` method:
 
 ```go
 var (
@@ -217,7 +217,7 @@ Select("price").To(&price).
 Where("is_deleted = false").
 // Join
 LeftJoin("products p", "p.id = o.product_id").
-// Bind a column from joined table to variable
+// Struct a column from joined table to variable
 Select("p.name").To(&productName).
 // Print top 10 offers
 OrderBy("price DEST").

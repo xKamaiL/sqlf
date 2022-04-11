@@ -3,7 +3,6 @@ package sqlf
 import (
 	"context"
 	"database/sql"
-	"reflect"
 
 	"github.com/acoshift/pgsql"
 	"github.com/acoshift/pgsql/pgctx"
@@ -29,49 +28,13 @@ func (q *Stmt) Exec(ctx context.Context) (sql.Result, error) {
 	return pgctx.Exec(ctx, q.String(), q.args...)
 }
 
-// StructElemToPtr get elem in struct to dest ptr
-func StructElemToPtr(data any) []any {
-
-	dest := make([]interface{}, 0)
-
-	typ := reflect.TypeOf(data).Elem()
-	val := reflect.ValueOf(data).Elem()
-
-	for i := 0; i < val.NumField(); i++ {
-		field := val.Field(i)
-		t := typ.Field(i)
-		if field.Kind() == reflect.Struct && t.Anonymous {
-			StructElemToPtr(field.Addr().Interface())
-		} else {
-			dbFieldName := t.Tag.Get("db")
-			if dbFieldName != "" {
-				dest = append(dest, field.Addr().Interface())
-			}
-		}
-	}
-	return dest
-}
-func Iter[T any](ctx context.Context, q *Stmt, value any) error {
-	return pgctx.Iter(ctx, func(scan pgsql.Scanner) error {
-		var t T
-		//q.To
-		if err := scan(t); err != nil {
-			return err
-		}
-		return nil
-	}, q.String(), q.args...)
-}
 func (q *Stmt) Iter(ctx context.Context, f IteratorFunc) error {
 	var err error
 	err = pgctx.Iter(ctx, func(scan pgsql.Scanner) error {
-
-		//var item T
-
 		if err := scan(q.dest...); err != nil {
 			return err
 		}
-		// TODO:
-
+		f()
 		return nil
 	}, q.String(), q.args...)
 	return err

@@ -5,10 +5,20 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/acoshift/pgsql/pgctx"
+
 	"github.com/xkamail/sqlf"
 )
 
 type dummyDB int
+
+func (db *dummyDB) PrepareContext(ctx context.Context, s2 string) (*sql.Stmt, error) {
+	return nil, nil
+}
+
+func (db *dummyDB) BeginTx(ctx context.Context, options *sql.TxOptions) (*sql.Tx, error) {
+	return nil, nil
+}
 
 func (db *dummyDB) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return nil, nil
@@ -23,7 +33,7 @@ func (db *dummyDB) QueryRowContext(ctx context.Context, query string, args ...in
 }
 
 var db = new(dummyDB)
-var ctx = context.Background()
+var ctx = pgctx.NewContext(context.Background(), db)
 
 func Example() {
 	var (
@@ -289,7 +299,7 @@ func ExampleStmt_Bind() {
 	var o Offer
 
 	err := sqlf.From("offers").
-		Bind(&o).
+		Struct(&o).
 		Where("id = ?", 42).
 		QueryRow(ctx)
 	if err != nil {

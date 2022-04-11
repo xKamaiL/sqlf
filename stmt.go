@@ -644,21 +644,21 @@ func (q *Stmt) Clone() *Stmt {
 	return stmt
 }
 
-// Bind adds structure fields to SELECT statement.
+// Struct adds structure fields to SELECT statement.
 // Structure fields have to be annotated with "db" tag.
-// Reflect-based Bind is slightly slower than `Select("field").To(&record.field)`
+// Reflect-based Struct is slightly slower than `Select("field").To(&record.field)`
 // but provides an easier way to retrieve data.
 //
 // Note: this method does no type checks and returns no errors.
-func (q *Stmt) Bind(data interface{}) *Stmt {
-	typ := reflect.TypeOf(data).Elem()
-	val := reflect.ValueOf(data).Elem()
+func (q *Stmt) Struct(ptr interface{}) *Stmt {
+	typ := reflect.TypeOf(ptr).Elem()
+	val := reflect.ValueOf(ptr).Elem()
 
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Field(i)
 		t := typ.Field(i)
 		if field.Kind() == reflect.Struct && t.Anonymous {
-			q.Bind(field.Addr().Interface())
+			q.Struct(field.Addr().Interface())
 		} else {
 			dbFieldName := t.Tag.Get("db")
 			if dbFieldName != "" {

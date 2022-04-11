@@ -135,7 +135,7 @@ func TestWith(t *testing.T) {
 			Select("id, quantity").
 			Where("ts < ?", time.Now())).
 		From("t").
-		Bind(&row)
+		Struct(&row)
 	defer q.Close()
 
 	require.Equal(t, "WITH t AS (SELECT id, quantity FROM orders WHERE ts < $1) SELECT id, quantity FROM t", q.String())
@@ -279,7 +279,7 @@ func TestBindStruct(t *testing.T) {
 		Extra     int64
 	}
 	q := sqlf.From("users").
-		Bind(&u).
+		Struct(&u).
 		Where("id = ?", 2)
 	defer q.Close()
 	require.Equal(t, "SELECT id, date, child_time, name FROM users WHERE id = $1", q.String())

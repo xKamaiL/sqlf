@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/acoshift/pgsql/pgctx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
@@ -83,26 +84,24 @@ func execScript(db *sql.DB, script []string) (err error) {
 }
 
 func forEveryDB(t *testing.T, test func(ctx context.Context, env *dbEnv)) {
-	for _, ctx := range []context.Context{nil, context.Background()} {
-		for n := range envs {
-			env := &envs[n]
-			// Create schema
-			err := execScript(env.db, sqlSchemaCreate)
+	for n := range envs {
+		env := &envs[n]
+		// Create schema
+		err := execScript(env.db, sqlSchemaCreate)
+		if err != nil {
+			t.Errorf("Failed to create a %s schema: %v", env.driver, err)
+		} else {
+			err = execScript(env.db, sqlFillDb)
 			if err != nil {
-				t.Errorf("Failed to create a %s schema: %v", env.driver, err)
+				t.Errorf("Failed to populate a %s database: %v", env.driver, err)
 			} else {
-				err = execScript(env.db, sqlFillDb)
-				if err != nil {
-					t.Errorf("Failed to populate a %s database: %v", env.driver, err)
-				} else {
-					// Execute a test
-					test(ctx, env)
-				}
+				// Execute a test
+				test(pgctx.NewContext(ctx, env.db), env)
 			}
-			err = execScript(env.db, sqlSchemaDrop)
-			if err != nil {
-				t.Errorf("Failed to drop a %s schema: %v", env.driver, err)
-			}
+		}
+		err = execScript(env.db, sqlSchemaDrop)
+		if err != nil {
+			t.Errorf("Failed to drop a %s schema: %v", env.driver, err)
 		}
 	}
 }
@@ -127,7 +126,7 @@ func TestBind(t *testing.T) {
 			Name string `db:"name"`
 		}
 		err := env.sqlf.From("users").
-			Bind(&u).
+			Struct(&u).
 			Where("id = ?", 2).
 			QueryRow(ctx)
 		require.NoError(t, err, "Failed to execute a query: %v", err)
@@ -146,7 +145,7 @@ func TestBindNested(t *testing.T) {
 			Name string `db:"name"`
 		}
 		err := env.sqlf.From("users").
-			Bind(&u).
+			Struct(&u).
 			Where("id = ?", 2).
 			QueryRow(ctx)
 		require.NoError(t, err, "Failed to execute a query: %v", err)
@@ -214,7 +213,7 @@ func TestPagination(t *testing.T) {
 		}
 
 		// Retrieve page data
-		err = qs.Bind(&o).
+		err = qs.Struct(&o).
 			OrderBy("id desc").
 			Paginate(1, 2).
 			Iter(ctx, func() {
@@ -298,14 +297,4 @@ var sqlFillDb = []string{
 var sqlSchemaDrop = []string{
 	`DROP TABLE incomes`,
 	`DROP TABLE users`,
-}
-
-func Test_StructElemToPtr(t *testing.T) {
-	var p struct {
-		First  string `json:"first" db:"first"`
-		Second int    `json:"second" db:"second"`
-		Third  int    `json:"third" db:"third"`
-	}
-	got := sqlf.StructElemToPtr(&p)
-	t.Log(got)
 }
