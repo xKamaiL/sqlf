@@ -205,7 +205,7 @@ func TestClone(t *testing.T) {
 	q.With("top_users", sqlf.From("users").OrderBy("rating DESCT").Limit(10)).
 		GroupBy("id").
 		Having("field > ?", 10).
-		Paginate(1, 20).
+		Paginate(paginator{1, 20, "asc"}).
 		Clause("FETCH ROWS ONLY").
 		Clause("FOR UPDATE")
 

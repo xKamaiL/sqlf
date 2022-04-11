@@ -11,6 +11,7 @@ import (
 
 	"github.com/acoshift/pgsql/pgctx"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/xkamail/sqlf"
@@ -201,27 +202,24 @@ func TestPagination(t *testing.T) {
 			o      Income
 			err    error
 		)
-
 		// Create a base query, apply filters
 		qs := sqlf.From("incomes").Where("amount > ?", 100)
 		// Clone a statement and retrieve the record count
 		err = qs.Clone().
 			Select("count(id)").To(&result.Count).
 			QueryRow(ctx)
-		if err != nil {
-			return
-		}
-
+		assert.NoError(t, err, "Failed to count")
+		var call bool
 		// Retrieve page data
 		err = qs.Struct(&o).
 			OrderBy("id desc").
-			Paginate(1, 2).
+			Paginate(paginator{1, 2, "desc"}).
 			Iter(ctx, func() {
+				call = true
 				result.Data = append(result.Data, o)
 			})
-		if err != nil {
-			return
-		}
+		require.NoError(t, err)
+		require.True(t, call)
 		require.EqualValues(t, 4, result.Count)
 		require.Len(t, result.Data, 2)
 	})
@@ -287,11 +285,11 @@ var sqlFillDb = []string{
 	`INSERT INTO users (id, name) VALUES (2, "User 2")`,
 	`INSERT INTO users (id, name) VALUES (3, "User 3")`,
 
-	`INSERT INTO incomes (user_id, from_user_id, amount) VALUES (1, 2, 100)`,
-	`INSERT INTO incomes (user_id, from_user_id, amount) VALUES (1, 2, 200)`,
-	`INSERT INTO incomes (user_id, from_user_id, amount) VALUES (1, 3, 350)`,
-	`INSERT INTO incomes (user_id, from_user_id, amount) VALUES (2, 3, 400)`,
-	`INSERT INTO incomes (user_id, from_user_id, amount) VALUES (3, 1, 500)`,
+	`INSERT INTO incomes (id, user_id, from_user_id, amount) VALUES (1,1, 2, 100)`,
+	`INSERT INTO incomes (id, user_id, from_user_id, amount) VALUES (2,1, 2, 200)`,
+	`INSERT INTO incomes (id, user_id, from_user_id, amount) VALUES (3,1, 3, 350)`,
+	`INSERT INTO incomes (id, user_id, from_user_id, amount) VALUES (4,2, 3, 400)`,
+	`INSERT INTO incomes (id, user_id, from_user_id, amount) VALUES (5,3, 1, 500)`,
 }
 
 var sqlSchemaDrop = []string{
